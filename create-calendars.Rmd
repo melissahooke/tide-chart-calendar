@@ -1,0 +1,242 @@
+---
+title: "curves"
+author: "Melissa Hooke"
+date: "December 23, 2018"
+output: html_document
+---
+
+```{r, include=FALSE}
+library(dplyr)
+library(chron)
+library(ggplot2)
+library(tidyr)
+library(ggthemes)
+library(lubridate)
+```
+
+
+```{r}
+tide = read.csv('marion_tide.csv')
+```
+
+
+```{r}
+# fix days with 2 am tides
+names(tide)[1] = "Date"
+tide$Day = as.character(tide$Day)
+for (row in 1:nrow(tide)){
+  if (is.na(tide$Date[row])){
+    tide$Date[row] = tide$Date[row-1]
+    tide$sunrise[row] = tide$sunrise[row-1]
+    tide$sunset[row] = tide$sunset[row-1]
+    tide$moon[row] = tide$moon[row-1]
+  }
+}
+
+tide[150,]
+```
+
+
+```{r}
+# gather times and heights into two columns
+hi1 =  tide[c(1:5,14:16)]
+hi2 = tide[c(1:3,6,7,14:16)]
+low1 = tide[c(1:3,9,10,14:16)]
+low2 = tide[c(1:3,11,12,14:16)]
+
+
+hi1 = hi1 %>% gather(key="tide",value="time",4)
+hi2 = hi2 %>% gather(key="tide",value="time",4)
+low1 =low1 %>% gather(key="tide",value="time",4)
+low2 =low2 %>% gather(key="tide",value="time",4)
+
+dfnames = c("Date","Day","Month","Height","Sunrise","Sunset","Moon","Tide","Time")
+names(hi1)=dfnames;names(hi2)=dfnames;names(low1)=dfnames;names(low2)=dfnames
+
+tides = rbind(hi1,hi2,low1,low2)
+```
+
+```{r}
+tides %>% filter(is.na(Day))
+```
+
+
+
+```{r}
+# make the days into numerical variable
+tide = tide %>% mutate(day_num = ifelse(Day=='Sun',0,
+                                 ifelse(Day=='Mon',1,
+                                        ifelse(Day=='Tue',2,
+                                               ifelse(Day=='Wed',3,
+                                                      ifelse(Day=='Thu',4,
+                                                             ifelse(Day=='Fri',5,
+                                                                    ifelse(Day=='Sat',6,9))))))))
+
+
+week_num = 1
+for (row in 1:nrow(tide)) {
+  if (tide$day_num[row] < 6) {
+    tide$week_num[row] = week_num
+  }
+  else if (tide$day_num[row] == 6){
+    tide$week_num[row] = week_num
+    week_num = week_num + 1
+  }
+  else if (tide$day_num[row] == 9){
+    tide$week_num[row] = tide$week_num[row-1]
+        tide$Day[row] = tide$Day[row-1]
+        tide$day_num[row] = tide$day_num[row-1]
+  }
+  
+}
+
+# gather times and heights into two columns
+hi1 =  tide[c(1:5,14:16)]
+hi2 = tide[c(1:3,6,7,14:16)]
+low1 = tide[c(1:3,9,10,14:16)]
+low2 = tide[c(1:3,11,12,14:16)]
+
+
+hi1 = hi1 %>% gather(key="tide",value="time",4)
+hi2 = hi2 %>% gather(key="tide",value="time",4)
+low1 =low1 %>% gather(key="tide",value="time",4)
+low2 =low2 %>% gather(key="tide",value="time",4)
+
+dfnames = c("Date","Day","Month","Height","Sunrise","Sunset","Moon","Tide","Time")
+names(hi1)=dfnames;names(hi2)=dfnames;names(low1)=dfnames;names(low2)=dfnames
+
+tides = rbind(hi1,hi2,low1,low2)
+
+
+tides$week_num = rep(tide$week_num,4)
+
+
+# day number for all tides
+for (row in 1:nrow(tide)){
+  if (tides$Day[row]==''){
+    tides$Day[row] = tides$Day[row-1]
+  }}
+tides = tides %>% mutate(day_num = ifelse(Day=='Sun',0,
+                                 ifelse(Day=='Mon',1,
+                                        ifelse(Day=='Tue',2,
+                                               ifelse(Day=='Wed',3,
+                                                      ifelse(Day=='Thu',4,
+                                                             ifelse(Day=='Fri',5,
+                                                                    ifelse(Day=='Sat',6,9))))))))
+
+```
+
+
+
+
+```{r}
+# create x coordinate
+# convert the dates into 24 hour periods
+tides = tides %>% mutate(mins = as.double(hm(Time))/3600)
+tides = tides %>% mutate(mins = ifelse(Tide=="high_1"& mins>=12,mins-12,mins))
+tides = tides %>% mutate(mins = ifelse(Tide=="low_1"& mins>=12,mins-12,mins))
+tides = tides %>% mutate(mins = ifelse(Tide=="high_2"&mins<12,mins+12,mins))
+tides = tides %>% mutate(mins = ifelse(Tide=="low_2" &mins<12,mins+12,mins))
+tides = tides %>% mutate(mins = day_num*24+mins)
+```
+
+```{r}
+# convert sunrise to hours
+tides = tides %>% mutate(risemins = as.double(hm(Sunrise))/3600)
+tides = tides %>% mutate(risemins = day_num*24+risemins)
+
+#convert sunset to hours
+tides = tides %>% mutate(setmins = as.double(hm(Sunset))/3600+12)
+tides = tides %>% mutate(setmins = day_num*24+setmins)
+```
+
+
+
+```{r,fig.width=11,fig.height=8, warning=FALSE}
+dow = c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
+
+# adjustments to text coordinates to dodge lines and boundaries
+tides = tides %>% mutate(newheight = Height + ifelse(Height>2.5,.35,-.25))
+tides = tides %>% mutate(newmins = ifelse(mins%%24<2.5,mins+2.5,
+                                                 ifelse(mins%%24>21.5,mins-2.5,mins)))
+
+
+month="January"
+
+#uncomment for loop to save all graphs (don't forget to uncomment bracket)
+for(month in sort(unique(tides$Month))) {
+  print(month)
+wave = tides %>% filter(!is.na(mins)) %>% filter(Month==month)
+
+
+
+# make the calendar
+cal= wave %>% ggplot(aes(x=mins,y=Height)) +
+  geom_line(size=1,col='skyblue') +
+  theme_bw()+
+  theme(legend.position = 'none')+
+  xlab('')+ ylab('') +
+  ggtitle(month)+
+  ylim(-1.5,6.5)+ xlim(0,169)+
+  facet_grid(week_num ~ .) +
+  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), 
+        strip.text = element_blank(),axis.ticks = element_blank(), 
+        axis.text.x=element_text(size=12,face='bold'), axis.text.y=element_text(size=7),
+        plot.title = element_text(hjust=.5,size=20, face="bold.italic"))
+  
+  
+
+# add lines
+cal = cal +
+  geom_vline(xintercept=0)+
+  geom_vline(xintercept=24)+
+  geom_vline(xintercept=48)+
+  geom_vline(xintercept=72)+
+  geom_vline(xintercept=96)+
+  geom_vline(xintercept=120)+
+  geom_vline(xintercept=144)+
+  geom_vline(xintercept=168)
+  
+
+#make numbers for the calendar squares
+labels = sort(unique(wave$Date))
+xs = (wave %>% group_by(Date)%>% slice(which.min(mins))%>% summarize(x = floor(mins/24)*24+1.7))$x
+ys = rep(5.7,length(labels))
+
+
+# add labels
+cal =cal + scale_x_continuous(breaks=seq(12,168,24),labels=dow,expand= c(0,0),position='top') + 
+  scale_y_continuous(breaks=c(0,2.5,5)) +
+  geom_text(aes(x=newmins,y=newheight,label=Time),size=3) +
+  geom_text(data=wave %>% group_by(Date)%>% slice(which.min(mins)),
+            aes(xs,ys,label=labels),fontface="bold")
+
+cal = cal + geom_point(aes(x=risemins,y=2.5), col='red') + 
+  geom_point(aes(x=setmins,y=2.5), col='blue')+
+  geom_text(aes(x=risemins,y=2.1,label=Sunrise), col='red',size=2, fontface='bold')+
+  geom_text(aes(x=setmins,y=2.1,label=Sunset), col='blue',size=2, fontface='bold')
+  
+# saves each calendar
+ggsave(paste0("Cal_", month,".png"), cal,width = 10,height=7)
+
+cal
+
+}
+
+
+  #geom_text(x=(subset(tides,Height>3))$xcoord,y=(subset(tides,Height>3))$Height,label=(subset(tides,Height>3))$Time,position=position_dodge(width = 1))
+  
+# calculate a spline to use as smooth curve
+#spline_int = as.data.frame(spline(tides$mins, tides$Height))
+#geom_smooth(method = "loess", span = .2, se = FALSE) +
+```
+
+
+```{r}
+write.csv(tides,"tides.csv")
+```
+
+
+
+
+
