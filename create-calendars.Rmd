@@ -16,13 +16,15 @@ library(lubridate)
 
 ```{r}
 year = '2020'
-location = 'great-hill-ma'
-dir.create(paste("Output",year,location,sep=""))
+location = 'westport-harbor-ma'
+dir.create(paste("Output",year,'-',location,sep=""))
 ```
 
 
 ```{r}
-tide = read.csv('tide-chart-great-hill-ma-2020.csv')
+tide = read.csv('tide-chart-westport-harbor-ma-2020.csv')
+tide$fullDate = paste(tide$Month,'-',tide$Date,'-2020',sep = '')
+tide$fullDate = as.Date(tide$fullDate,format='%B-%d-%Y')
 names(tide)
 ```
 
@@ -113,14 +115,18 @@ tides = tides %>% mutate(setmins = as.double(hm(Sunset))/3600+12)
 tides = tides %>% mutate(setmins = day_num*24+setmins)
 ```
 
+```{r}
+tides$fullDate = paste(tides$Month,'-',tides$Date,'-2020',sep = '')
+tides$fullDate = as.Date(tides$fullDate,format='%B-%d-%Y')
+```
 
 
 ```{r,fig.width=11,fig.height=8, warning=FALSE}
 dow = c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
 
 # adjustments to text coordinates to dodge lines and boundaries
-tides = tides %>% mutate(newheight = Height + ifelse(Height>2.5,.35,-.25))
-tides = tides %>% mutate(newmins = ifelse(mins%%24<2.5,mins+2.5,
+tides = tides %>% mutate(newheight = Height + ifelse(Height>2,.35,-.25))
+tides = tides %>% mutate(newmins = ifelse(mins%%24<2,mins+2.5,
                                                  ifelse(mins%%24>21.5,mins-2.5,mins)))
 
 
@@ -130,7 +136,6 @@ month="January"
 for(month in sort(unique(tides$Month))) {
   print(month)
 wave = tides %>% filter(!is.na(mins)) %>% filter(Month==month)
-
 
 
 # make the calendar
@@ -163,24 +168,24 @@ cal = cal +
 
 #make numbers for the calendar squares
 labels = sort(unique(wave$Date))
-xs = (wave %>% group_by(Date)%>% slice(which.min(mins))%>% summarize(x = floor(mins/24)*24+1.7))$x
-ys = rep(5.7,length(labels))
+xs = (wave %>% group_by(Date)%>% slice(which.min(mins))%>% dplyr::summarise(x = floor(mins/24)*24+1.8))$x
+ys = rep(5.65,length(labels))
 
 
 # add labels
 cal =cal + scale_x_continuous(breaks=seq(12,168,24),labels=dow,expand= c(0,0),position='top') + 
   scale_y_continuous(breaks=c(0,2.5,5)) +
-  geom_text(aes(x=newmins,y=newheight,label=Time),size=3) +
+  geom_text(aes(x=newmins,y=newheight,label=Time),size=3.5) +
   geom_text(data=wave %>% group_by(Date)%>% slice(which.min(mins)),
             aes(xs,ys,label=labels),fontface="bold")
 
-cal = cal + geom_point(aes(x=risemins,y=2.5), col='red') + 
-  geom_point(aes(x=setmins,y=2.5), col='blue')+
-  geom_text(aes(x=risemins,y=2.1,label=Sunrise), col='red',size=2, fontface='bold')+
-  geom_text(aes(x=setmins,y=2.1,label=Sunset), col='blue',size=2, fontface='bold')
+cal = cal + geom_point(aes(x=risemins,y=2.5), col='red',size=.5) + 
+  geom_point(aes(x=setmins,y=2.5), col='blue',size=.5)+
+  geom_text(aes(x=risemins,y=2.1,label=Sunrise), col='red',size=2.25, fontface='bold')+
+  geom_text(aes(x=setmins,y=2.1,label=Sunset), col='blue',size=2.25, fontface='bold')
   
 # saves each calendar
-ggsave(paste0("Output",year,location,"/Cal_", month,".png"), cal,width = 10,height=7)
+ggsave(paste0("Output",year,'-',location,"/Cal_", month,".png"), cal,width = 10,height=7)
 
 cal
 }
