@@ -15,15 +15,15 @@ library(lubridate)
 ```
 
 ```{r}
-year = '2020'
-location = 'westport-harbor-ma'
+year = '2021'
+location = 'great-hill-ma'
 dir.create(paste("Output",year,'-',location,sep=""))
 ```
 
 
 ```{r}
-tide = read.csv('tide-chart-westport-harbor-ma-2020.csv')
-tide$fullDate = paste(tide$Month,'-',tide$Date,'-2020',sep = '')
+tide = read.csv(paste('tide-chart-',location,'-',year,'.csv',sep=''))
+tide$fullDate = paste(tide$Month,'-',tide$Date,'-',year,sep = '')
 tide$fullDate = as.Date(tide$fullDate,format='%B-%d-%Y')
 names(tide)
 ```
@@ -144,37 +144,36 @@ cal= wave %>% ggplot(aes(x=mins,y=Height)) +
   theme_bw()+
   theme(legend.position = 'none')+
   xlab('')+ ylab('') +
-  ggtitle(month)+
-  ylim(-1.5,6.5)+ xlim(0,169)+
+  ggtitle(paste(month,year))+
   facet_grid(week_num ~ .) +
-  theme(panel.spacing = unit(0, "lines"), strip.background = element_blank(), 
+  theme(panel.spacing = unit(0, "lines"),
+        panel.border = element_rect(color="azure4"), strip.background = element_blank(), 
         strip.text = element_blank(),axis.ticks = element_blank(), 
         axis.text.x=element_text(size=12,face='bold'), axis.text.y=element_text(size=7),
         plot.title = element_text(hjust=.5,size=20, face="bold.italic"))
   
-  
 
 # add lines
 cal = cal +
-  geom_vline(xintercept=0)+
-  geom_vline(xintercept=24)+
-  geom_vline(xintercept=48)+
-  geom_vline(xintercept=72)+
-  geom_vline(xintercept=96)+
-  geom_vline(xintercept=120)+
-  geom_vline(xintercept=144)+
-  geom_vline(xintercept=168)
+  geom_vline(xintercept=0,col="azure4")+
+  geom_vline(xintercept=24,col="azure4")+
+  geom_vline(xintercept=48,col="azure4")+
+  geom_vline(xintercept=72,col="azure4")+
+  geom_vline(xintercept=96,col="azure4")+
+  geom_vline(xintercept=120,col="azure4")+
+  geom_vline(xintercept=144,col="azure4")+
+  geom_vline(xintercept=169,col="azure4")
   
 
 #make numbers for the calendar squares
 labels = sort(unique(wave$Date))
 xs = (wave %>% group_by(Date)%>% slice(which.min(mins))%>% dplyr::summarise(x = floor(mins/24)*24+1.8))$x
-ys = rep(5.65,length(labels))
+ys = rep(6.2,length(labels))
 
 
 # add labels
-cal =cal + scale_x_continuous(breaks=seq(12,168,24),labels=dow,expand= c(0,0),position='top') + 
-  scale_y_continuous(breaks=c(0,2.5,5)) +
+cal =cal + scale_x_continuous(limits = c(0,169),breaks=seq(12,168,24),labels=dow,expand= c(0,0),position='top') + 
+  scale_y_continuous(limits = c(-1.25,6.5),breaks=c(0,2.5,5)) +
   geom_text(aes(x=newmins,y=newheight,label=Time),size=3.5) +
   geom_text(data=wave %>% group_by(Date)%>% slice(which.min(mins)),
             aes(xs,ys,label=labels),fontface="bold")
@@ -200,7 +199,7 @@ cal
 
 
 ```{r}
-write.csv(tides,paste0("Output",year,location,"/tides.csv"))
+write.csv(tides,paste0("Output",year,"-",location,"/tides.csv"))
 ```
 
 
