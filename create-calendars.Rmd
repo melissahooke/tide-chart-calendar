@@ -15,7 +15,7 @@ library(lubridate)
 ```
 
 ```{r}
-year = '2021'
+year = '2022'
 location = 'great-hill-ma'
 dir.create(paste("Output",year,'-',location,sep=""))
 ```
@@ -31,45 +31,47 @@ names(tide)
 
 ```{r}
 # gather times and heights into two columns
-hi1 =  tide[c(1:5,12:13)]
-hi2 = tide[c(1:3,6,7,12:13)]
-low1 = tide[c(1:3,8,9,12:13)]
-low2 = tide[c(1:3,10,11,12:13)]
+#hi1 =  tide[c(1:5,12:13)]
+#hi2 = tide[c(1:3,6,7,12:13)]
+#low1 = tide[c(1:3,8,9,12:13)]
+#low2 = tide[c(1:3,10,11,12:13)]
+#
+#
+#hi1 = hi1 %>% gather(key="tide",value="time",4)
+#hi2 = hi2 %>% gather(key="tide",value="time",4)
+#low1 =low1 %>% gather(key="tide",value="time",4)
+#low2 =low2 %>% gather(key="tide",value="time",4)
+#
+#dfnames = c("Month","Date","Day","Height","Sunrise","Sunset","Tide","Time")
+#names(hi1)=dfnames;names(hi2)=dfnames;names(low1)=dfnames;names(low2)=dfnames
+#
+#tides = rbind(hi1,hi2,low1,low2)
+#
+#tides = tides %>% filter(!is.na(Time) & Time!="")
+#tides = tides[order(tides$Date),]
+#tides = tides[order(tides$Month),]
 
-
-hi1 = hi1 %>% gather(key="tide",value="time",4)
-hi2 = hi2 %>% gather(key="tide",value="time",4)
-low1 =low1 %>% gather(key="tide",value="time",4)
-low2 =low2 %>% gather(key="tide",value="time",4)
-
-dfnames = c("Month","Date","Day","Height","Sunrise","Sunset","Tide","Time")
-names(hi1)=dfnames;names(hi2)=dfnames;names(low1)=dfnames;names(low2)=dfnames
-
-tides = rbind(hi1,hi2,low1,low2)
-
-tides = tides %>% filter(!is.na(Time) & Time!="")
-tides = tides[order(tides$Date),]
-tides = tides[order(tides$Month),]
+tides = tide
 tides$Height = as.numeric(as.character(tides$Height))
 
 #fix when there are two AM tides or two PM tides
-for (row in 1:nrow(tides)) {
-  if (grepl('[AP]M',tides[row,]$Time)){
-    if (tides[row,]$Tide =='low_1'){
-      tides[row,]$Tide ='low_2'
-    }
-    else if (tides[row,]$Tide =='low_2'){
-      tides[row,]$Tide ='low_1'
-    }
-    else if (tides[row,]$Tide =='high_2'){
-      tides[row,]$Tide ='high_1'
-    }
-    else if (tides[row,]$Tide =='high_1'){
-      tides[row,]$Tide ='low_2'
-    }
-    tides[row,]$Time = gsub('\\s[AP]M','',tides[row,]$Time)
-  }
-}
+#for (row in 1:nrow(tides)) {
+#  if (grepl('[AP]M',tides[row,]$Time)){
+#    if (tides[row,]$Tide =='low_1'){
+#      tides[row,]$Tide ='low_2'
+#    }
+#    else if (tides[row,]$Tide =='low_2'){
+#      tides[row,]$Tide ='low_1'
+#    }
+#    else if (tides[row,]$Tide =='high_2'){
+#      tides[row,]$Tide ='high_1'
+#    }
+#    else if (tides[row,]$Tide =='high_1'){
+#      tides[row,]$Tide ='low_2'
+#    }
+#    tides[row,]$Time = gsub('\\s[AP]M','',tides[row,]$Time)
+#  }
+#}
 
 
 tides = tides %>% mutate(day_num = ifelse(Day=='Sun',0,
@@ -97,11 +99,12 @@ for (row in 1:nrow(tides)) {
 ```{r}
 # create x coordinate
 # convert the dates into 24 hour periods
+tides = tides %>% mutate(AMorPM = ifelse(grepl("AM",Time),"AM","PM"))
+tides = tides %>% mutate(Time = gsub(" [AP]M","",Time))
+
 tides = tides %>% mutate(mins = as.double(hm(Time))/3600)
-tides = tides %>% mutate(mins = ifelse(Tide=="high_1"& mins>=12,mins-12,mins))
-tides = tides %>% mutate(mins = ifelse(Tide=="low_1"& mins>=12,mins-12,mins))
-tides = tides %>% mutate(mins = ifelse(Tide=="high_2"&mins<12,mins+12,mins))
-tides = tides %>% mutate(mins = ifelse(Tide=="low_2" &mins<12,mins+12,mins))
+tides = tides %>% mutate(mins = ifelse(AMorPM == "AM" & mins>=12,mins-12,mins))
+tides = tides %>% mutate(mins = ifelse(AMorPM == "PM" & mins<12,mins+12,mins))
 tides = tides %>% mutate(mins = day_num*24+mins)
 ```
 
@@ -116,7 +119,7 @@ tides = tides %>% mutate(setmins = day_num*24+setmins)
 ```
 
 ```{r}
-tides$fullDate = paste(tides$Month,'-',tides$Date,'-2020',sep = '')
+tides$fullDate = paste(tides$Month,'-',tides$Date,'-',year,sep = '')
 tides$fullDate = as.Date(tides$fullDate,format='%B-%d-%Y')
 ```
 
@@ -134,6 +137,7 @@ month="January"
 
 #uncomment for loop to save all graphs (don't forget to uncomment bracket)
 for(month in sort(unique(tides$Month))) {
+  month_num = match(month,month.name)
   print(month)
 wave = tides %>% filter(!is.na(mins)) %>% filter(Month==month)
 
@@ -184,7 +188,7 @@ cal = cal + geom_point(aes(x=risemins,y=2.5), col='red',size=.5) +
   geom_text(aes(x=setmins,y=2.1,label=Sunset), col='blue',size=2.25, fontface='bold')
   
 # saves each calendar
-ggsave(paste0("Output",year,'-',location,"/Cal_", month,".png"), cal,width = 10,height=7)
+ggsave(paste0("Output",year,'-',location,"/",month_num,"-",month,".png"), cal,width = 10,height=7)
 
 cal
 }
@@ -201,6 +205,7 @@ cal
 ```{r}
 write.csv(tides,paste0("Output",year,"-",location,"/tides.csv"))
 ```
+
 
 
 
